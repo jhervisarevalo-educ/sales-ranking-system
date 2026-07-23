@@ -473,28 +473,26 @@ bool loadFromFile(std::vector<Product>& products, const std::string& filename) {
 }
 
 // Menu option: ask for a filename and save the current products to it.
-void saveProductsMenu(const std::vector<Product>& products) {
+void saveProductsMenu(const std::vector<Product>& products,
+                      const std::string& defaultFile) {
     std::cout << "\n--- Save Products to File ---\n";
-    std::string filename = readLine("Enter filename to save to (e.g. products.csv): ");
+
+    // Read a filename that MAY be empty (unlike readLine, which requires input).
+    // If the user just presses Enter, we save to the default file.
+    std::cout << "Enter filename to save to (press Enter for \""
+              << defaultFile << "\"): ";
+    std::string filename;
+    std::getline(std::cin, filename);
+    if (filename.empty()) {
+        filename = defaultFile;
+    }
+
     if (saveToFile(products, filename)) {
         std::cout << "  Saved " << products.size()
                   << " product(s) to \"" << filename << "\".\n";
     } else {
         std::cout << "  Error: could not open \"" << filename
                   << "\" for writing.\n";
-    }
-}
-
-// Menu option: ask for a filename and load products from it (replaces list).
-void loadProductsMenu(std::vector<Product>& products) {
-    std::cout << "\n--- Load Products from File ---\n";
-    std::string filename = readLine("Enter filename to load from (e.g. products.csv): ");
-    if (loadFromFile(products, filename)) {
-        std::cout << "  Loaded " << products.size()
-                  << " product(s) from \"" << filename << "\".\n";
-    } else {
-        std::cout << "  Error: could not open \"" << filename
-                  << "\". Make sure the file exists.\n";
     }
 }
 
@@ -515,8 +513,7 @@ void printMenu() {
               << "  6. Display Top 5 Best-Selling Products\n"
               << "  7. Display Lowest-Selling Products\n"
               << "  8. Save Products to File\n"
-              << "  9. Load Products from File\n"
-              << " 10. Exit\n"
+              << "  9. Exit\n"
               << "========================================\n";
 }
 
@@ -558,19 +555,18 @@ int main() {
     bool running = true;
     while (running) {
         printMenu();
-        int choice = readInt("Enter your choice (1-10): ");
+        int choice = readInt("Enter your choice (1-9): ");
 
         switch (choice) {
-            case 1: addProduct(products);          break;
-            case 2: displayAllProducts(products);  break;
-            case 3: recordSale(products);          break;
-            case 4: searchProduct(products);       break;
-            case 5: sortByUnitsSold(products);     break;
-            case 6: displayTopSelling(products);   break;
-            case 7: displayLowestSelling(products);break;
-            case 8: saveProductsMenu(products);    break;
-            case 9: loadProductsMenu(products);    break;
-            case 10:
+            case 1: addProduct(products);                    break;
+            case 2: displayAllProducts(products);            break;
+            case 3: recordSale(products);                    break;
+            case 4: searchProduct(products);                 break;
+            case 5: sortByUnitsSold(products);               break;
+            case 6: displayTopSelling(products);             break;
+            case 7: displayLowestSelling(products);          break;
+            case 8: saveProductsMenu(products, DEFAULT_FILE);break;
+            case 9:
                 // Auto-save the current data so it is there next time.
                 if (saveToFile(products, DEFAULT_FILE)) {
                     std::cout << "\nData saved to \"" << DEFAULT_FILE << "\".\n";
@@ -582,7 +578,7 @@ int main() {
                 running = false;
                 break;
             default:
-                std::cout << "  Invalid choice. Please enter a number from 1 to 10.\n";
+                std::cout << "  Invalid choice. Please enter a number from 1 to 9.\n";
                 break;
         }
     }

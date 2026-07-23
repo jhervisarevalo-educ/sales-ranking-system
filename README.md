@@ -31,9 +31,8 @@ The program is menu-driven and runs entirely in the console (no GUI). It uses ob
 5. **Sort Products by Units Sold** - rank highest to lowest (Merge Sort).
 6. **Display Top 5 Best-Selling Products**.
 7. **Display Lowest-Selling Products**.
-8. **Save Products to File** - type a filename to save the current list (Save As). Supports keeping several data files.
-9. **Load Products from File** - type a filename to load a saved list (replaces the current data).
-10. **Exit** - auto-saves the current data to `products.csv`.
+8. **Save Products to File** - type a filename to save the current list (Save As). Press Enter with no filename to save to the default `products.csv`. Supports keeping several data files.
+9. **Exit** - auto-saves the current data to `products.csv`.
 
 ---
 
@@ -75,9 +74,9 @@ id,name,category,price,unitsSold
 
 **How loading/saving works:**
 
-- **On startup**, the program tries to auto-load the default file `products.csv`. If it exists, that data is used; if not, built-in sample data is loaded so the program is never empty.
-- **On exit** (option 10), the current data is auto-saved back to `products.csv`.
-- **Save Products to File** (option 8) and **Load Products from File** (option 9) let you type any filename, so you can keep **multiple data files** (e.g. `products_2024.csv`, `products_2025.csv`).
+- **On startup**, the program automatically loads the default file `products.csv`. If it exists, that data is used; if not, built-in sample data is loaded so the program is never empty.
+- **On exit** (option 9), the current data is auto-saved back to `products.csv`.
+- **Save Products to File** (option 8) lets you type any filename, so you can keep **multiple data files** (e.g. `products_2024.csv`, `products_2025.csv`). If you press Enter without typing a name, it saves to the default `products.csv`.
 
 **Limitation (beginner-friendly simplification):** because a comma separates the fields, product names and categories should **not contain commas**. Any malformed line is skipped with a warning instead of crashing the program.
 
@@ -121,8 +120,8 @@ Let `n` be the number of products.
 | Sort by Units Sold            | `O(n log n)`    | Merge Sort                                       |
 | Top 5 Best-Selling            | `O(n log n)`    | Sorts a copy, then reads the top 5              |
 | Lowest-Selling                | `O(n log n)`    | Sorts a copy, then reads the bottom 5           |
-| Save to File                  | `O(n)`          | Writes each product as one CSV line             |
-| Load from File                | `O(n)`          | Reads and parses each CSV line once             |
+| Save to File (option 8)       | `O(n)`          | Writes each product as one CSV line             |
+| Load from File (on startup)   | `O(n)`          | Reads and parses each CSV line once             |
 
 ---
 
@@ -201,17 +200,17 @@ ID    Name                  Category             Price  Units Sold
 
 ```
 --- Save Products to File ---
-Enter filename to save to (e.g. products.csv): backup_2026.csv
+Enter filename to save to (press Enter for "products.csv"): backup_2026.csv
   Saved 5 product(s) to "backup_2026.csv".
 ```
 
-**Auto-load on the next run and auto-save on exit (option 10):**
+**Auto-load on the next run and auto-save on exit (option 9):**
 
 ```
 Welcome to the Sales Ranking System!
 Loaded 5 product(s) from "products.csv".
 ...
-Enter your choice (1-10): 10
+Enter your choice (1-9): 9
 
 Data saved to "products.csv".
 Thank you for using the Sales Ranking System. Goodbye!

@@ -14,18 +14,21 @@
 
 #include <string>
 
-class Product {
-public:
-    int         id;         // Unique product ID
-    std::string name;       // Product name (e.g. "Wireless Mouse")
-    std::string category;   // Product category (e.g. "Electronics")
-    double      price;      // Selling price
-    int         unitsSold;  // Total units sold so far (used for ranking)
+class Product
+{
+  public:
+    int id;               // Unique product ID
+    std::string name;     // Product name (e.g. "Wireless Mouse")
+    std::string category; // Product category (e.g. "Electronics")
+    double price;         // Selling price
+    int unitsSold;        // Total units sold so far (used for ranking)
 
     // Constructor: create a product with a starting sales count of 0.
-    Product(int id, const std::string& name, const std::string& category,
+    Product(int id, const std::string &name, const std::string &category,
             double price)
-        : id(id), name(name), category(category), price(price), unitsSold(0) {}
+        : id(id), name(name), category(category), price(price), unitsSold(0)
+    {
+    }
 };
 
 #endif // PRODUCT_HPP

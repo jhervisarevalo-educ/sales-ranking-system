@@ -19,26 +19,12 @@
 #include <cctype>     // std::tolower
 #include <fstream>    // std::ifstream, std::ofstream (file input/output)
 #include <sstream>    // std::stringstream (splitting CSV lines)
+#include <chrono>     // std::chrono (measuring algorithm run time)
+#include <random>     // std::mt19937 (generating random test data)
 
-// ============================================================================
-//  STAGE 1: The data model
-//  ---------------------------------------------------------------------------
-//  A Product is one item sold by the store. We store every product inside a
-//  std::vector<Product>, which grows automatically as products are added.
-// ============================================================================
-class Product {
-public:
-    int         id;         // Unique product ID
-    std::string name;       // Product name (e.g. "Wireless Mouse")
-    std::string category;   // Product category (e.g. "Electronics")
-    double      price;      // Selling price
-    int         unitsSold;  // Total units sold so far (used for ranking)
-
-    // Constructor: create a product with a starting sales count of 0.
-    Product(int id, const std::string& name, const std::string& category,
-            double price)
-        : id(id), name(name), category(category), price(price), unitsSold(0) {}
-};
+#include "product.hpp"                     // the shared Product class
+#include "sort-algo/sort_algorithms.hpp"   // multiple sorting algorithms
+#include "search-algo/search_algorithms.hpp" // linear + binary search
 
 // ============================================================================
 //  STAGE 2: Input validation helpers
@@ -114,7 +100,7 @@ void printTableHeader() {
     std::cout << "\n"
               << std::left
               << std::setw(6)  << "ID"
-              << std::setw(22) << "Name"
+              << std::setw(30) << "Name"
               << std::setw(16) << "Category"
               << std::right
               << std::setw(10) << "Price"
@@ -127,7 +113,7 @@ void printTableHeader() {
 void printProductRow(const Product& p) {
     std::cout << std::left
               << std::setw(6)  << p.id
-              << std::setw(22) << p.name
+              << std::setw(30) << p.name
               << std::setw(16) << p.category
               << std::right
               << std::setw(10) << std::fixed << std::setprecision(2) << p.price
@@ -181,28 +167,16 @@ void displayAllProducts(const std::vector<Product>& products) {
 }
 
 // ============================================================================
-//  STAGE 4: Record a Sale and Linear Search
+//  STAGE 4: Record a Sale and Search (Linear / Binary)
 //  ---------------------------------------------------------------------------
-//  LINEAR SEARCH is chosen for searching because:
-//    * The product list is NOT kept sorted by ID or name, so faster methods
-//      like binary search cannot be used directly.
-//    * It is simple, correct, and works on any data ordering.
-//    * Time complexity is O(n): in the worst case we look at every product.
+//  The search algorithms now live in search-algo/search_algorithms.hpp:
+//    * Linear Search - O(n),     works on unsorted data.
+//    * Binary Search - O(log n), requires the data sorted by ID first.
+//  Record a Sale uses Linear Search because the list is not kept sorted.
 // ============================================================================
 
-// Returns the index of the product with the given ID, or -1 if not found.
-// Time complexity: O(n) (Linear Search).
-int linearSearchById(const std::vector<Product>& products, int id) {
-    for (std::size_t i = 0; i < products.size(); ++i) {
-        if (products[i].id == id) {
-            return static_cast<int>(i);
-        }
-    }
-    return -1; // not found
-}
-
 // Records a sale by increasing the units sold of a chosen product.
-// Time complexity: O(n) because we must first find the product.
+// Time complexity: O(n) because we must first find the product (Linear Search).
 void recordSale(std::vector<Product>& products) {
     std::cout << "\n--- Record a Sale ---\n";
     if (products.empty()) {
@@ -211,7 +185,7 @@ void recordSale(std::vector<Product>& products) {
     }
 
     int id    = readInt("Enter the Product ID of the item sold: ");
-    int index = linearSearchById(products, id);
+    int index = searchalgo::linearSearchById(products, id);
 
     if (index == -1) {
         std::cout << "  No product found with ID " << id << ".\n";
@@ -230,8 +204,7 @@ void recordSale(std::vector<Product>& products) {
               << products[index].unitsSold << " units.\n";
 }
 
-// Searches for products by ID or by (partial, case-insensitive) name.
-// Time complexity: O(n) (Linear Search).
+// Searches for products by ID (Linear or Binary) or by partial name (Linear).
 void searchProduct(const std::vector<Product>& products) {
     std::cout << "\n--- Search Product ---\n";
     if (products.empty()) {
@@ -245,13 +218,36 @@ void searchProduct(const std::vector<Product>& products) {
     int choice = readInt("Enter choice (1-2): ");
 
     if (choice == 1) {
-        int id    = readInt("Enter Product ID: ");
-        int index = linearSearchById(products, id);
-        if (index == -1) {
+        // Let the user pick which search ALGORITHM to use for the ID search.
+        std::cout << "Search algorithm:\n"
+                  << "  1. Linear Search (O(n), no preparation needed)\n"
+                  << "  2. Binary Search (O(log n), needs data sorted by ID first)\n";
+        int algo = readInt("Enter choice (1-2): ");
+        int id   = readInt("Enter Product ID: ");
+
+        const Product* found = nullptr;
+
+        if (algo == 2) {
+            // Binary search needs a copy sorted by ID ascending.
+            std::vector<Product> sorted = searchalgo::sortByIdAscending(products);
+            int index = searchalgo::binarySearchById(sorted, id);
+            if (index != -1) {
+                found = &sorted[index];
+            }
+            std::cout << "  (Used Binary Search)\n";
+        } else {
+            int index = searchalgo::linearSearchById(products, id);
+            if (index != -1) {
+                found = &products[index];
+            }
+            std::cout << "  (Used Linear Search)\n";
+        }
+
+        if (found == nullptr) {
             std::cout << "  No product found with ID " << id << ".\n";
         } else {
             printTableHeader();
-            printProductRow(products[index]);
+            printProductRow(*found);
         }
     } else if (choice == 2) {
         std::string term = toLower(readLine("Enter Product Name (or part of it): "));
@@ -276,85 +272,66 @@ void searchProduct(const std::vector<Product>& products) {
 }
 
 // ============================================================================
-//  STAGE 5: Merge Sort ranking (units sold, high to low)
+//  STAGE 5: Sorting with a choice of algorithm + timing
 //  ---------------------------------------------------------------------------
-//  MERGE SORT is chosen for ranking because:
-//    * It is a stable sort (products with equal sales keep their order).
-//    * It guarantees O(n log n) time in the BEST, AVERAGE, and WORST cases,
-//      unlike Quick Sort which can degrade to O(n^2) in the worst case.
-//    * It is a classic divide-and-conquer algorithm, ideal for coursework.
-//  Trade-off: it uses O(n) extra memory for the temporary merge buffers.
+//  The sorting algorithms live in sort-algo/sort_algorithms.hpp. Here we let
+//  the user pick one, run it, and measure how long it took in milliseconds.
 // ============================================================================
 
-// Merges two already-sorted halves [left..mid] and [mid+1..right] so that
-// the combined range is sorted in DESCENDING order of unitsSold.
-void merge(std::vector<Product>& products, int left, int mid, int right) {
-    // Copy the two halves into temporary vectors.
-    std::vector<Product> leftHalf(products.begin() + left,
-                                   products.begin() + mid + 1);
-    std::vector<Product> rightHalf(products.begin() + mid + 1,
-                                    products.begin() + right + 1);
-
-    std::size_t i = 0; // index into leftHalf
-    std::size_t j = 0; // index into rightHalf
-    int k = left;      // index into the original vector
-
-    // Pick the larger unitsSold first (descending order).
-    while (i < leftHalf.size() && j < rightHalf.size()) {
-        if (leftHalf[i].unitsSold >= rightHalf[j].unitsSold) {
-            products[k++] = leftHalf[i++];
-        } else {
-            products[k++] = rightHalf[j++];
-        }
-    }
-
-    // Copy any remaining elements from the left half.
-    while (i < leftHalf.size()) {
-        products[k++] = leftHalf[i++];
-    }
-    // Copy any remaining elements from the right half.
-    while (j < rightHalf.size()) {
-        products[k++] = rightHalf[j++];
-    }
+// Runs a sort function on the given vector and returns the elapsed time in ms.
+// Uses a high-resolution clock so even fast sorts can be measured.
+double timeSort(void (*sortFn)(std::vector<Product>&),
+                std::vector<Product>& data) {
+    auto start = std::chrono::high_resolution_clock::now();
+    sortFn(data);
+    auto end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-// Recursively splits the range in half, sorts each half, then merges them.
-// Time complexity: O(n log n).
-void mergeSort(std::vector<Product>& products, int left, int right) {
-    if (left >= right) {
-        return; // a range of 0 or 1 element is already sorted
-    }
-    int mid = left + (right - left) / 2; // avoids potential overflow
-    mergeSort(products, left, mid);       // sort left half
-    mergeSort(products, mid + 1, right);  // sort right half
-    merge(products, left, mid, right);    // combine the two sorted halves
-}
-
-// Menu option: sort the products in place (highest units sold first) and show.
-// Time complexity: O(n log n).
+// Menu option: let the user choose a sorting algorithm, sort in place, time it.
 void sortByUnitsSold(std::vector<Product>& products) {
-    std::cout << "\n--- Sort Products by Units Sold (Highest to Lowest) ---";
+    std::cout << "\n--- Sort Products by Units Sold (Highest to Lowest) ---\n";
     if (products.empty()) {
-        std::cout << "\n  No products to sort. Add some first.\n";
+        std::cout << "  No products to sort. Add some first.\n";
         return;
     }
-    mergeSort(products, 0, static_cast<int>(products.size()) - 1);
-    std::cout << "\n  Products sorted using Merge Sort.\n";
+
+    // Show the available algorithms from the registry.
+    std::vector<sortalgo::SortAlgo> algos = sortalgo::allSortAlgorithms();
+    std::cout << "Choose a sorting algorithm:\n";
+    for (std::size_t i = 0; i < algos.size(); ++i) {
+        std::cout << "  " << (i + 1) << ". " << algos[i].name
+                  << "  [" << algos[i].bigO << "]\n";
+    }
+    int choice = readInt("Enter choice (1-" +
+                         std::to_string(algos.size()) + "): ");
+
+    if (choice < 1 || choice > static_cast<int>(algos.size())) {
+        std::cout << "  Invalid choice. Returning to menu.\n";
+        return;
+    }
+
+    const sortalgo::SortAlgo& chosen = algos[choice - 1];
+    double ms = timeSort(chosen.run, products); // sorts `products` in place
+
+    std::cout << "\n  Sorted using " << chosen.name
+              << " (" << chosen.bigO << ") in "
+              << std::fixed << std::setprecision(4) << ms << " ms.\n";
     displayAllProducts(products);
 }
 
 // ============================================================================
 //  STAGE 6: Top 5 Best-Selling and Lowest-Selling products
 //  ---------------------------------------------------------------------------
-//  Both features first rank the products with Merge Sort (O(n log n)), then
-//  print from either end of the sorted list. Sorting a copy keeps the caller's
-//  original ordering unchanged.
+//  Both features rank the products using the sort library's Merge Sort
+//  (O(n log n), stable), then print from either end of the sorted list.
+//  Sorting a copy keeps the caller's original ordering unchanged.
 // ============================================================================
 
 // Displays the 5 products with the highest units sold.
 // Time complexity: O(n log n) (dominated by the sort).
 void displayTopSelling(const std::vector<Product>& products) {
-    std::cout << "\n--- Top 5 Best-Selling Products ---";
+    std::cout << "\n--- Top 5 Best-Selling Products (ranked via Merge Sort) ---";
     if (products.empty()) {
         std::cout << "\n  No products to rank. Add some first.\n";
         return;
@@ -362,7 +339,7 @@ void displayTopSelling(const std::vector<Product>& products) {
 
     // Work on a copy so the original list order is not disturbed.
     std::vector<Product> ranked = products;
-    mergeSort(ranked, 0, static_cast<int>(ranked.size()) - 1);
+    sortalgo::mergeSort(ranked);
 
     int count = std::min(5, static_cast<int>(ranked.size()));
     printTableHeader();
@@ -374,14 +351,14 @@ void displayTopSelling(const std::vector<Product>& products) {
 // Displays the lowest-selling products (bottom 5).
 // Time complexity: O(n log n) (dominated by the sort).
 void displayLowestSelling(const std::vector<Product>& products) {
-    std::cout << "\n--- Lowest-Selling Products ---";
+    std::cout << "\n--- Lowest-Selling Products (ranked via Merge Sort) ---";
     if (products.empty()) {
         std::cout << "\n  No products to rank. Add some first.\n";
         return;
     }
 
     std::vector<Product> ranked = products;
-    mergeSort(ranked, 0, static_cast<int>(ranked.size()) - 1);
+    sortalgo::mergeSort(ranked);
 
     int total = static_cast<int>(ranked.size());
     int count = std::min(5, total);
@@ -497,6 +474,97 @@ void saveProductsMenu(const std::vector<Product>& products,
 }
 
 // ============================================================================
+//  STAGE 8 (extension): Random data generator + algorithm benchmark
+//  ---------------------------------------------------------------------------
+//  With only a handful of products, every sort finishes in ~0 ms. To see the
+//  difference between O(n^2) and O(n log n) algorithms we can generate a large
+//  random dataset and then time each algorithm on the SAME data.
+// ============================================================================
+
+// Beyond this size the O(n^2) sorts become very slow, so we skip them.
+const int QUADRATIC_LIMIT = 20000;
+
+// Menu option: replace the current list with N randomly generated products.
+// Time complexity: O(n).
+void generateRandomProducts(std::vector<Product>& products) {
+    std::cout << "\n--- Generate Random Products ---\n";
+    int n = readInt("How many random products to generate? ");
+    if (n <= 0) {
+        std::cout << "  Please enter a positive number. Nothing generated.\n";
+        return;
+    }
+
+    // A few sample categories to pick from at random.
+    const std::vector<std::string> categories = {
+        "Electronics", "Kitchen", "Stationery", "Sports", "Toys", "Clothing"
+    };
+
+    // Random number generation using the standard <random> library.
+    std::mt19937 rng(std::random_device{}());
+    std::uniform_int_distribution<int> unitsDist(0, 100000); // random units sold
+    std::uniform_int_distribution<int> priceCents(50, 50000); // 0.50 - 500.00
+    std::uniform_int_distribution<int> catPick(0, static_cast<int>(categories.size()) - 1);
+
+    std::vector<Product> generated;
+    generated.reserve(n);
+    for (int i = 1; i <= n; ++i) {
+        // Sequential IDs guarantee uniqueness; names are "Product_<id>".
+        Product p(i, "Product_" + std::to_string(i),
+                  categories[catPick(rng)], priceCents(rng) / 100.0);
+        p.unitsSold = unitsDist(rng);
+        generated.push_back(p);
+    }
+
+    products = generated; // replace the current data
+    std::cout << "  Generated " << products.size()
+              << " random product(s). They are now the active list.\n";
+}
+
+// Menu option: run EVERY sorting algorithm on the same data and print timings.
+// Each algorithm sorts its own fresh copy so the comparison is fair.
+void compareAllSorts(const std::vector<Product>& products) {
+    std::cout << "\n--- Compare All Sorting Algorithms ---\n";
+    if (products.empty()) {
+        std::cout << "  No products to sort. Add or generate some first.\n";
+        return;
+    }
+
+    std::size_t n = products.size();
+    std::cout << "Sorting " << n << " product(s) with each algorithm...\n";
+    if (n > static_cast<std::size_t>(QUADRATIC_LIMIT)) {
+        std::cout << "  (Note: O(n^2) sorts are skipped for n > "
+                  << QUADRATIC_LIMIT << " because they would be too slow.)\n";
+    }
+
+    // Table header.
+    std::cout << "\n" << std::left
+              << std::setw(18) << "Algorithm"
+              << std::setw(14) << "Complexity"
+              << std::right << std::setw(16) << "Time (ms)" << "\n";
+    std::cout << std::string(48, '-') << "\n";
+
+    for (const sortalgo::SortAlgo& algo : sortalgo::allSortAlgorithms()) {
+        // Skip quadratic sorts on very large inputs.
+        if (algo.isQuadratic && n > static_cast<std::size_t>(QUADRATIC_LIMIT)) {
+            std::cout << std::left
+                      << std::setw(18) << algo.name
+                      << std::setw(14) << algo.bigO
+                      << std::right << std::setw(16) << "skipped" << "\n";
+            continue;
+        }
+
+        std::vector<Product> copy = products; // fresh, identical data each time
+        double ms = timeSort(algo.run, copy);
+        std::cout << std::left
+                  << std::setw(18) << algo.name
+                  << std::setw(14) << algo.bigO
+                  << std::right << std::setw(16)
+                  << std::fixed << std::setprecision(4) << ms << "\n";
+    }
+    std::cout << "\n  Tip: notice how O(n log n) sorts scale far better than O(n^2).\n";
+}
+
+// ============================================================================
 //  Menu and main program loop
 // ============================================================================
 
@@ -513,7 +581,9 @@ void printMenu() {
               << "  6. Display Top 5 Best-Selling Products\n"
               << "  7. Display Lowest-Selling Products\n"
               << "  8. Save Products to File\n"
-              << "  9. Exit\n"
+              << "  9. Generate Random Products\n"
+              << " 10. Compare All Sorting Algorithms\n"
+              << " 11. Exit\n"
               << "========================================\n";
 }
 
@@ -555,18 +625,20 @@ int main() {
     bool running = true;
     while (running) {
         printMenu();
-        int choice = readInt("Enter your choice (1-9): ");
+        int choice = readInt("Enter your choice (1-11): ");
 
         switch (choice) {
-            case 1: addProduct(products);                    break;
-            case 2: displayAllProducts(products);            break;
-            case 3: recordSale(products);                    break;
-            case 4: searchProduct(products);                 break;
-            case 5: sortByUnitsSold(products);               break;
-            case 6: displayTopSelling(products);             break;
-            case 7: displayLowestSelling(products);          break;
-            case 8: saveProductsMenu(products, DEFAULT_FILE);break;
-            case 9:
+            case 1:  addProduct(products);                    break;
+            case 2:  displayAllProducts(products);            break;
+            case 3:  recordSale(products);                    break;
+            case 4:  searchProduct(products);                 break;
+            case 5:  sortByUnitsSold(products);               break;
+            case 6:  displayTopSelling(products);             break;
+            case 7:  displayLowestSelling(products);          break;
+            case 8:  saveProductsMenu(products, DEFAULT_FILE);break;
+            case 9:  generateRandomProducts(products);        break;
+            case 10: compareAllSorts(products);               break;
+            case 11:
                 // Auto-save the current data so it is there next time.
                 if (saveToFile(products, DEFAULT_FILE)) {
                     std::cout << "\nData saved to \"" << DEFAULT_FILE << "\".\n";
@@ -578,7 +650,7 @@ int main() {
                 running = false;
                 break;
             default:
-                std::cout << "  Invalid choice. Please enter a number from 1 to 9.\n";
+                std::cout << "  Invalid choice. Please enter a number from 1 to 11.\n";
                 break;
         }
     }

@@ -1,6 +1,6 @@
 # Sales Ranking System
 
-A console-based C++ program for a retail store, built for the **Algorithms and Complexities** course. It demonstrates two classic algorithms, **Linear Search** and **Merge Sort**, applied to a real-world marketing task: ranking products by how many units they have sold.
+A console-based C++ program for a retail store, built for the **Algorithms and Complexities** course. It demonstrates several classic **searching and sorting algorithms** applied to a real-world marketing task: ranking products by how many units they have sold. You can choose which algorithm to run and see how long it takes in milliseconds, making the difference between `O(n^2)` and `O(n log n)` easy to observe.
 
 ---
 
@@ -15,8 +15,9 @@ The program is menu-driven and runs entirely in the console (no GUI). It uses ob
 ## 2. Objectives
 
 - Practice object-oriented programming in C++ (a `Product` class stored in a `std::vector`).
-- Implement and explain **Linear Search** for finding products.
-- Implement and explain **Merge Sort** for ranking products by units sold.
+- Implement and explain multiple **search algorithms** (Linear and Binary Search).
+- Implement and explain multiple **sorting algorithms** (Bubble, Selection, Insertion, Merge, Quick).
+- **Measure and compare** algorithm run times in milliseconds on the same data.
 - Analyze the **time complexity** (Big-O) of every major operation.
 - Write clean, modular, well-commented, beginner-friendly code with input validation.
 
@@ -27,12 +28,14 @@ The program is menu-driven and runs entirely in the console (no GUI). It uses ob
 1. **Add a Product** - enter ID, name, category, and price.
 2. **Display All Products** - show every product in a table.
 3. **Record a Sale** - increase the units sold of a product.
-4. **Search Product by ID or Name** - find products quickly.
-5. **Sort Products by Units Sold** - rank highest to lowest (Merge Sort).
-6. **Display Top 5 Best-Selling Products**.
-7. **Display Lowest-Selling Products**.
+4. **Search Product by ID or Name** - for ID search you choose Linear or Binary Search.
+5. **Sort Products by Units Sold** - choose one of five algorithms; shows the time taken in ms.
+6. **Display Top 5 Best-Selling Products** (ranked internally with Merge Sort).
+7. **Display Lowest-Selling Products** (ranked internally with Merge Sort).
 8. **Save Products to File** - type a filename to save the current list (Save As). Press Enter with no filename to save to the default `products.csv`. Supports keeping several data files.
-9. **Exit** - auto-saves the current data to `products.csv`.
+9. **Generate Random Products** - replace the list with N random products for benchmarking.
+10. **Compare All Sorting Algorithms** - run every sort on the same data and print a timing table.
+11. **Exit** - auto-saves the current data to `products.csv`.
 
 ---
 
@@ -49,6 +52,21 @@ Each product is an object of the `Product` class:
 | `unitsSold` | `int`         | Total units sold (for ranking) |
 
 All products are stored in a `std::vector<Product>`, which grows automatically as products are added.
+
+The code is split into a small set of header-only libraries so the algorithms are reusable and `main.cpp` stays readable:
+
+```
+Dynamic-Price-Engine/
+  main.cpp                          # menu, I/O, timing, wiring
+  product.hpp                       # the shared Product class
+  sort-algo/
+    sort_algorithms.hpp             # Bubble, Selection, Insertion, Merge, Quick + registry
+  search-algo/
+    search_algorithms.hpp           # Linear + Binary search
+  README.md
+```
+
+Because the libraries are header-only, the build is still a single command (see section 7) - no separate compilation step is needed.
 
 ---
 
@@ -84,25 +102,33 @@ id,name,category,price,unitsSold
 
 ## 5. Algorithms Used
 
-### Linear Search (for searching)
-Linear Search checks each product one by one until it finds a match.
+### Search algorithms (`search-algo/search_algorithms.hpp`)
 
-**Why chosen:**
-- The product list is **not kept sorted** by ID or name, so a faster method like binary search cannot be used directly.
-- It is **simple and always correct**, regardless of how the data is ordered.
-- It works for both exact ID matches and partial name matches.
+**Linear Search** - checks each product one by one until a match is found.
+- Works on data in **any order**; needs no preparation.
+- **Time complexity:** `O(n)`.
+- Used for: partial name search, Record a Sale, and as one option for ID search.
 
-**Time complexity:** `O(n)` - in the worst case, every product is checked.
+**Binary Search** - repeatedly halves the search range.
+- **Requires** the data sorted by the key (ID) first; the program sorts a copy by ID before searching.
+- **Time complexity:** `O(log n)` for the search itself (plus `O(n log n)` once to sort the copy).
+- A great teaching contrast: much faster than Linear Search, but only usable on sorted data.
 
-### Merge Sort (for ranking)
-Merge Sort is a divide-and-conquer algorithm: it splits the list in half, sorts each half recursively, then merges the two sorted halves back together (in descending order of units sold).
+### Sort algorithms (`sort-algo/sort_algorithms.hpp`)
 
-**Why chosen:**
-- It **guarantees `O(n log n)`** in the best, average, and worst cases, unlike Quick Sort, which can drop to `O(n^2)` in the worst case.
-- It is **stable**: products with equal sales keep their original relative order.
-- It is a clear, classic teaching example of divide-and-conquer.
+All sorts rank products in **descending** order of units sold (best-sellers first).
 
-**Time complexity:** `O(n log n)` time, `O(n)` extra space (for the temporary merge buffers).
+| Algorithm      | Best        | Average      | Worst        | Stable? | Notes                                  |
+|----------------|-------------|--------------|--------------|---------|----------------------------------------|
+| Bubble Sort    | `O(n)`      | `O(n^2)`     | `O(n^2)`     | Yes     | Simple; early-exit when already sorted |
+| Selection Sort | `O(n^2)`    | `O(n^2)`     | `O(n^2)`     | No      | Few swaps, many comparisons            |
+| Insertion Sort | `O(n)`      | `O(n^2)`     | `O(n^2)`     | Yes     | Fast on nearly-sorted data             |
+| Merge Sort     | `O(n log n)`| `O(n log n)` | `O(n log n)` | Yes     | Divide-and-conquer; `O(n)` extra space |
+| Quick Sort     | `O(n log n)`| `O(n log n)` | `O(n^2)`     | No      | Fast in practice; worst case on bad pivots |
+
+**Why offer several?** The whole point of the course is comparing complexity classes. Menu option 10 ("Compare All Sorting Algorithms") runs each of these on the *same* data and prints the measured time, so the `O(n^2)` vs `O(n log n)` gap is visible (see section 8).
+
+**Default for the Top 5 / Lowest displays:** Merge Sort, because it is stable and guarantees `O(n log n)` in every case.
 
 ---
 
@@ -110,18 +136,22 @@ Merge Sort is a divide-and-conquer algorithm: it splits the list in half, sorts 
 
 Let `n` be the number of products.
 
-| Operation                     | Time Complexity | Notes                                           |
-|-------------------------------|-----------------|-------------------------------------------------|
-| Add a Product                 | `O(n)`          | Scans to reject duplicate IDs; `push_back` is `O(1)` amortized |
-| Display All Products          | `O(n)`          | Visits each product once                        |
-| Record a Sale                 | `O(n)`          | Linear Search to find the product first         |
-| Search by ID                  | `O(n)`          | Linear Search                                   |
-| Search by Name                | `O(n)`          | Linear Search over all products                 |
-| Sort by Units Sold            | `O(n log n)`    | Merge Sort                                       |
-| Top 5 Best-Selling            | `O(n log n)`    | Sorts a copy, then reads the top 5              |
-| Lowest-Selling                | `O(n log n)`    | Sorts a copy, then reads the bottom 5           |
-| Save to File (option 8)       | `O(n)`          | Writes each product as one CSV line             |
-| Load from File (on startup)   | `O(n)`          | Reads and parses each CSV line once             |
+| Operation                     | Time Complexity   | Notes                                           |
+|-------------------------------|-------------------|-------------------------------------------------|
+| Add a Product                 | `O(n)`            | Scans to reject duplicate IDs; `push_back` is `O(1)` amortized |
+| Display All Products          | `O(n)`            | Visits each product once                        |
+| Record a Sale                 | `O(n)`            | Linear Search to find the product first         |
+| Search by ID (Linear)         | `O(n)`            | Linear Search                                   |
+| Search by ID (Binary)         | `O(log n)` search | Plus `O(n log n)` once to sort a copy by ID     |
+| Search by Name                | `O(n)`            | Linear Search over all products                 |
+| Sort (Bubble/Selection/Insertion) | `O(n^2)`      | Quadratic sorts (chosen from option 5)          |
+| Sort (Merge/Quick)            | `O(n log n)`      | Merge always; Quick average (worst `O(n^2)`)    |
+| Top 5 Best-Selling            | `O(n log n)`      | Merge-sorts a copy, then reads the top 5        |
+| Lowest-Selling                | `O(n log n)`      | Merge-sorts a copy, then reads the bottom 5     |
+| Generate Random Products      | `O(n)`            | Builds N products                               |
+| Compare All Sorting Algorithms| `O(n^2)`          | Dominated by the quadratic sorts it runs        |
+| Save to File (option 8)       | `O(n)`            | Writes each product as one CSV line             |
+| Load from File (on startup)   | `O(n)`            | Reads and parses each CSV line once             |
 
 ---
 
@@ -130,12 +160,14 @@ Let `n` be the number of products.
 Requires a C++ compiler that supports C++17 (for example, `g++`).
 
 ```bash
-# Compile
+# Compile (the sort-algo/ and search-algo/ headers are included automatically)
 g++ -std=c++17 -Wall -Wextra -o sales_ranking main.cpp
 
 # Run
 ./sales_ranking
 ```
+
+Only `main.cpp` is compiled - the algorithm libraries are header-only and are pulled in by `#include`, so there is no separate build step.
 
 On the first run there is no `products.csv`, so the program pre-loads a few sample products. When you exit, your data is saved to `products.csv` and will be auto-loaded next time.
 
@@ -163,7 +195,7 @@ Total products: 5
 **Top 5 Best-Selling (menu option 6) - ranked with Merge Sort:**
 
 ```
---- Top 5 Best-Selling Products ---
+--- Top 5 Best-Selling Products (ranked via Merge Sort) ---
 ID    Name                  Category             Price  Units Sold
 ------------------------------------------------------------------
 103   Notebook              Stationery            3.25         200
@@ -204,13 +236,47 @@ Enter filename to save to (press Enter for "products.csv"): backup_2026.csv
   Saved 5 product(s) to "backup_2026.csv".
 ```
 
-**Auto-load on the next run and auto-save on exit (option 9):**
+**Choosing a sorting algorithm with timing (menu option 5):**
+
+```
+--- Sort Products by Units Sold (Highest to Lowest) ---
+Choose a sorting algorithm:
+  1. Bubble Sort  [O(n^2)]
+  2. Selection Sort  [O(n^2)]
+  3. Insertion Sort  [O(n^2)]
+  4. Merge Sort  [O(n log n)]
+  5. Quick Sort  [O(n log n)]
+Enter choice (1-5): 5
+
+  Sorted using Quick Sort (O(n log n)) in 0.0039 ms.
+```
+
+**Comparing all sorts on 5,000 random products (options 9 then 10):**
+
+```
+--- Compare All Sorting Algorithms ---
+Sorting 5000 product(s) with each algorithm...
+
+Algorithm         Complexity           Time (ms)
+------------------------------------------------
+Bubble Sort       O(n^2)               1590.3016
+Selection Sort    O(n^2)                 49.9366
+Insertion Sort    O(n^2)                414.5508
+Merge Sort        O(n log n)              9.4024
+Quick Sort        O(n log n)              9.4693
+
+  Tip: notice how O(n log n) sorts scale far better than O(n^2).
+```
+
+(Exact times vary by machine, but the `O(n log n)` sorts are consistently much faster.)
+
+**Auto-load on the next run and auto-save on exit (option 11):**
 
 ```
 Welcome to the Sales Ranking System!
 Loaded 5 product(s) from "products.csv".
 ...
-Enter your choice (1-9): 9
+Enter your choice (1-11): 11
 
 Data saved to "products.csv".
 Thank you for using the Sales Ranking System. Goodbye!
@@ -220,19 +286,22 @@ Thank you for using the Sales Ranking System. Goodbye!
 
 ## 9. Possible Future Improvements
 
-- **Binary Search** on an ID-sorted copy for faster lookups on very large datasets.
 - **Quoted CSV fields** so names and categories can safely contain commas.
 - **Sort by other fields** (price, category, name), ascending or descending.
 - **Sales reports** such as total revenue per category (`price * unitsSold`).
 - **Edit or delete products** from the list.
 - **Undo a sale** in case of mistakes.
+- **More algorithms** (e.g. Heap Sort, Shell Sort) added to the sort registry.
 
 ---
 
 ## 10. File Structure
 
-| File           | Purpose                                                   |
-|----------------|-----------------------------------------------------------|
-| `main.cpp`     | Full program: `Product` class, menu, algorithms, file I/O |
-| `README.md`    | This documentation                                        |
-| `products.csv` | Default data file (auto-created on first exit)             |
+| File                              | Purpose                                                     |
+|-----------------------------------|-------------------------------------------------------------|
+| `main.cpp`                        | Menu, input validation, file I/O, timing, and wiring        |
+| `product.hpp`                     | The shared `Product` class                                  |
+| `sort-algo/sort_algorithms.hpp`   | Bubble, Selection, Insertion, Merge, Quick sorts + registry |
+| `search-algo/search_algorithms.hpp` | Linear and Binary search                                   |
+| `README.md`                       | This documentation                                          |
+| `products.csv`                    | Default data file (auto-created on first exit)              |
